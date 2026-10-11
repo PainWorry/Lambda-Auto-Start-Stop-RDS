@@ -24,42 +24,36 @@ This reference architecture is designed in strict accordance with the **AWS Well
 
 ```mermaid
 flowchart TD
-    subgraph AWS_Cloud ["AWS Cloud (Region: ap-southeast-1)"]
-        
-        subgraph Networking ["1. Secure Networking (VPC 10.0.0.0/16)"]
-            VPC["VPC (10.0.0.0/16)"]
-            PubSub["Public Subnets (NAT / IGW)"]
-            PrivSub["Private Subnets (Workloads)"]
-            SG["Security Groups (Least Privilege<br>Port 22 SSH Blocked)"]
-        end
-
-        subgraph Compute_Data ["2. Compute & Database Layer"]
-            EC2["EC2 Linux Instance<br>(Amazon Linux 2023 / SSM Agent)"]
-            RDS["RDS PostgreSQL Instance<br>(db.t3.micro / Multi-AZ Subnets)"]
-            S3["S3 Data Lake Bucket<br>(Lifecycle: >90 Days to Glacier Deep Archive)"]
-        end
-
-        subgraph Serverless_FinOps ["3. Serverless Cost Governance (~65% Cost Cut)"]
-            EB["EventBridge Cron Schedule<br>• 19:00 Mon-Fri: Trigger Stop<br>• 08:00 Mon-Fri: Trigger Start"]
-            Lambda["AWS Lambda Function<br>(Python 3.12 / Boto3 SDK)"]
-        end
-
-        subgraph Observability ["4. Incident Observability"]
-            CW["Amazon CloudWatch Alarms<br>• EC2 CPUUtilization > 80%<br>• RDS FreeStorageSpace < 5 GB"]
-            SNS["Amazon SNS Alerts Topic"]
-            Email["On-Call Engineer Email"]
-        end
-
+    subgraph Networking ["1. Secure Networking (VPC 10.0.0.0/16)"]
+        direction LR
+        VPC["VPC (10.0.0.0/16)"] --- PubSub["Public Subnets (NAT / IGW)"] --- PrivSub["Private Subnets (Workloads)"] --- SG["Security Groups (Port 22 Blocked)"]
     end
 
-    EB -->|Scheduled Event| Lambda
+    subgraph Serverless_FinOps ["2. Serverless Cost Governance (~65% Cost Cut)"]
+        EB["EventBridge Cron Schedule<br>• 19:00 Mon-Fri: Trigger Stop<br>• 08:00 Mon-Fri: Trigger Start"]
+        Lambda["AWS Lambda Function<br>(Python 3.12 / Boto3 SDK)"]
+        EB -->|Scheduled Event| Lambda
+    end
+
+    subgraph Compute_Data ["3. Compute & Database Layer"]
+        EC2["EC2 Linux Instance<br>(Amazon Linux 2023 / SSM Agent)"]
+        RDS["RDS PostgreSQL Instance<br>(db.t3.micro / Multi-AZ Subnets)"]
+        S3["S3 Data Lake Bucket<br>(Lifecycle: >90 Days to Glacier Deep Archive)"]
+    end
+
+    subgraph Observability ["4. Incident Observability"]
+        CW["Amazon CloudWatch Alarms<br>• EC2 CPUUtilization > 80%<br>• RDS FreeStorageSpace < 5 GB"]
+        SNS["Amazon SNS Alerts Topic"]
+        Email["On-Call Engineer Email"]
+        CW -->|Trigger Alarm| SNS
+        SNS -->|Email Notification| Email
+    end
+
+    Networking --> Serverless_FinOps
     Lambda -->|ec2:StopInstances / StartInstances| EC2
     Lambda -->|rds:StopDBInstance / StartDBInstance| RDS
-
     EC2 -.->|Metrics| CW
     RDS -.->|Metrics| CW
-    CW -->|Trigger Alarm| SNS
-    SNS -->|Email Notification| Email
 ```
 
 ---
