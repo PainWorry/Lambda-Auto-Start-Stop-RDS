@@ -71,6 +71,11 @@ projects/cloudops-cost-governance/
 │   └── start_stop_scheduler.py    # Python 3.12 Lambda automation using Boto3
 ├── scripts/
 │   └── audit_finops_unused_resources.sh  # Enterprise Bash script for FinOps resource hygiene
+├── dashboard/
+│   ├── index.html                 # Interactive Ops & FinOps single-page application
+│   ├── app.js                     # State engine, simulation logic, and telemetry logger
+│   ├── start_dashboard.sh         # 1-click local HTTP server launcher
+│   └── README.md                  # Dashboard documentation and interview demo script
 ├── docs/
 │   └── images/                    # Photographic evidence gallery (12 verified screenshots)
 ├── .gitignore                     # Security gitignore rules (prevents .tfstate, tfplan & secrets leaks)
