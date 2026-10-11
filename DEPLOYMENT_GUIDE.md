@@ -41,15 +41,24 @@ AWS provides a 12-Month Free Tier offering 750 hours/month of `t2.micro`/`t3.mic
 * A mobile phone number capable of receiving SMS OTP verification codes.
 
 ### 2.2 Account Registration Steps
-1. Navigate to the official AWS portal: [https://aws.amazon.com/free/](https://aws.amazon.com/free/)
-2. Click **"Create an AWS Account"** (or **"Sign Up"** in the top right corner).
-3. **Root User Email:** Enter your email address and set an **AWS account name** (e.g., `cloudops-lab`). Click **Verify email address**.
+
+> [IMPORTANT NOTE: AWS CLOUD ACCOUNT VS. AWS BUILDER ID]  
+> Do not confuse an **AWS Cloud Account** with an **AWS Builder ID**.  
+> An **AWS Builder ID** (hosted at `profile.aws.amazon.com`) is only an individual developer profile for training and tools (e.g., Amazon Q, PartyRock). It does not have an AWS Account ID, IAM console, or infrastructure capabilities.  
+> You need a genuine **AWS Cloud Account** which grants access to the **AWS Management Console** (`console.aws.amazon.com`) for EC2, RDS, VPC, and Terraform provisioning.
+
+1. Open a new **Incognito / Private Browsing window** (recommended to avoid being redirected to a cached Builder ID session).
+2. Navigate directly to the official AWS Cloud Account registration link:  
+   **[https://portal.aws.amazon.com/billing/signup](https://portal.aws.amazon.com/billing/signup)**  
+   *(Alternative: Go to [https://aws.amazon.com](https://aws.amazon.com) and click the orange **"Create an AWS Account"** button in the top right corner).*
+3. **Step 1 - Root User Email:** Enter your email address and an **AWS account name** (e.g., `cloudops-lab`). Click **Verify email address**.
 4. Check your inbox for the 6-digit verification code, submit it, and create a strong Root User password.
-5. **Contact Information:** Select **Personal** (for personal projects and learning) and complete your full legal name, phone number, and address.
-6. **Payment Information:** Enter your credit or debit card details.
-7. **Identity Verification:** Enter your phone number, select **SMS**, and enter the 4-digit code sent to your phone.
-8. **Select a Support Plan:** Choose **Basic support - Free ($0/month)**. Do **not** select Developer or Business support.
+5. **Step 2 - Contact Information:** Select **Personal** (for personal projects, learning, and portfolio labs) and complete your full legal name, phone number, and address.
+6. **Step 3 - Payment Information:** Enter your credit or debit card details. (AWS will initiate a temporary verification hold of ~$1.00 USD, automatically refunded within 3-5 business days).
+7. **Step 4 - Identity Verification:** Enter your phone number, select **SMS**, and enter the 4-digit OTP code sent to your phone.
+8. **Step 5 - Support Plan Selection:** Choose **Basic support - Free ($0/month)**. Do **not** select Developer or Business support.
 9. Click **Complete sign up** and wait 2 to 5 minutes for account activation.
+10. Navigate to the [AWS Management Console](https://console.aws.amazon.com/) to confirm active cloud access.
 
 ---
 
