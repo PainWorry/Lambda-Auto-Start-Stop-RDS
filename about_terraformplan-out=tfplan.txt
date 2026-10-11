@@ -1,0 +1,149 @@
+# ==============================================================================
+# CloudOps & FinOps Engineering Guide: Understanding "terraform plan -out=tfplan"
+# ==============================================================================
+# Target File: about_terraformplan-out=tfplan.txt
+# Purpose: Real-World Code Review Checklist, Inspection Commands, and Interview Q&A
+# ==============================================================================
+
+1. OVERVIEW & MECHANICS: WHAT IS "terraform plan -out=tfplan"?
+------------------------------------------------------------------------------
+When you run a standard "terraform plan", Terraform connects to your cloud 
+provider (AWS), refreshes state, and prints a speculative execution plan to 
+standard output (terminal screen). However, this plan is kept only in memory 
+and is NOT saved to disk.
+
+When you specify the "-out=tfplan" flag:
+  $ terraform plan -out=tfplan
+
+Terraform serializes the exact execution plan into a binary artifact file named 
+"tfplan" in your current directory.
+
+Why this matters:
+* Local Workflow: Running "terraform plan" followed by "terraform apply" is safe 
+  for solo development, but Terraform recalculates state during apply.
+* Enterprise / CI-CD Workflow: In automated pipelines (GitHub Actions, GitLab CI, 
+  Terraform Cloud), engineers run "terraform plan -out=tfplan" during the Pull 
+  Request phase. After peer review and approval, the pipeline executes 
+  "terraform apply tfplan". This guarantees that what was reviewed is deployed 
+  100% deterministically without state recalculation or drift.
+
+
+2. FILE STRUCTURE & INSPECTION
+------------------------------------------------------------------------------
+File Location: ./tfplan (e.g., terraform/tfplan)
+File Format: Binary ZIP archive data (compressed and structured by HashiCorp)
+
+Note: Opening "tfplan" with text editors like nano, vim, or cat displays raw 
+compressed bytes. This is deliberate to prevent manual tampering and protect 
+sensitive values.
+
+How to inspect the plan:
+* Human-Readable Format:
+    terraform show tfplan
+    terraform show tfplan | less
+
+* Machine-Readable JSON Format (used for policy engines like OPA / Sentinel):
+    terraform show -json tfplan
+    terraform show -json tfplan | jq .
+
+
+3. PRE-FLIGHT CHECKLIST: WHAT TO INSPECT BEFORE RUNNING "APPLY"
+------------------------------------------------------------------------------
+When reviewing a plan for production or during a technical interview walkthrough,
+a Cloud Engineer inspects five critical pillars:
+
+[PILLAR 1: BLAST RADIUS & SUMMARY LINE]
+Location: End of the plan output
+Example: "Plan: 35 to add, 0 to change, 0 to destroy."
+Key Rule:
+  - Pay immediate attention to the "destroy" and "change" numbers.
+  - If a production database or storage volume shows a "-" (destroy) or "-/+" 
+    (replace), STOP execution immediately and investigate root causes.
+  - For greenfield deployments, "35 to add, 0 to change, 0 to destroy" indicates 
+    zero destructive blast radius.
+
+[PILLAR 2: NETWORK SECURITY & LEAST PRIVILEGE]
+* RDS Accessibility:
+    + publicly_accessible = false
+  Confirms the database is isolated in private subnets with zero public IP.
+* Security Group Chaining:
+    aws_security_group.rds_sg ingress rule allows port 5432 ONLY from 
+    the EC2 Security Group, never from 0.0.0.0/0.
+* Zero-Trust Management Access:
+    Public Port 22 (SSH) is completely closed. Access is managed via AWS 
+    Systems Manager (SSM Session Manager) using the IAM policy:
+    "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore".
+* S3 Public Access:
+    aws_s3_bucket_public_access_block sets all four block policies to true.
+
+[PILLAR 3: FINOPS & AUTOMATED COST GOVERNANCE]
+* Off-Hours Resource Scheduling:
+    aws_cloudwatch_event_rule.stop_schedule:
+      schedule_expression = "cron(0 12 ? * MON-FRI *)"  (19:00 Bangkok / 12:00 UTC)
+    aws_cloudwatch_event_rule.start_schedule:
+      schedule_expression = "cron(0 1 ? * MON-FRI *)"   (08:00 Bangkok / 01:00 UTC)
+  Impact: Reduces non-production compute and database runtime from 168 hours/week 
+  to 55 hours/week, cutting operational costs by ~67%.
+* S3 Storage Lifecycle Tiering:
+    aws_s3_bucket_lifecycle_configuration transitions objects >90 days to 
+    Glacier Deep Archive (95% storage savings) and expires objects after 365 days.
+
+[PILLAR 4: HIGH AVAILABILITY & INFRASTRUCTURE RESILIENCE]
+* Multi-AZ Subnet Coverage:
+    Subnets are explicitly split across "ap-southeast-1a" and "ap-southeast-1b".
+* RDS DB Subnet Group:
+    Even though the development database runs on a single db.t3.micro, the 
+    underlying DB Subnet Group spans multiple AZs. This ensures seamless 
+    future upgrades to Multi-AZ failover without network disruption.
+
+[PILLAR 5: INCIDENT OBSERVABILITY & PROACTIVE MONITORING]
+* EC2 CPU Alarm:
+    Triggers when CPUUtilization exceeds 80% for 2 consecutive evaluation 
+    periods (prevents false alarms from transient spikes).
+* RDS Storage Alarm:
+    Triggers when FreeStorageSpace drops below 5 GB (5,368,709,120 bytes) 
+    to prevent database lockups.
+* Notification Channel:
+    Both alarms route directly to an AWS SNS email subscription.
+
+
+4. TECHNICAL INTERVIEW QUESTIONS & MODEL ANSWERS
+------------------------------------------------------------------------------
+Q1: "Why do many attributes in the plan show '(known after apply)'?"
+Answer:
+"Because those resources do not exist yet on AWS. Attributes such as Resource IDs, 
+ARNs, Endpoint DNS names, and generated MAC addresses are assigned dynamically 
+by AWS API services at creation time. Terraform represents them as 
+'(known after apply)' to indicate that dependent resources can reference them once 
+created."
+
+Q2: "Why does the RDS password appear as 'password = (sensitive value)'?"
+Answer:
+"Terraform detects sensitive input variables and hides them from terminal logs 
+and console output. This security feature ensures that secrets are not exposed in 
+CI/CD logs or shared pull request reviews."
+
+Q3: "Why should we use 'terraform plan -out=tfplan' instead of running 'plan' alone?"
+Answer:
+"In enterprise DevOps pipelines, running plan alone creates a speculative plan 
+that cannot be locked. By serializing the plan with '-out=tfplan', the exact 
+dependency graph and planned actions are frozen into an immutable artifact. When 
+'terraform apply tfplan' is invoked post-approval, it guarantees that only the 
+vetted changes are applied without re-evaluating state or risking concurrent drift."
+
+Q4: "What would you do if a routine plan output showed '1 to destroy' on an RDS instance?"
+Answer:
+"I would immediately halt the pipeline. I would review the diff to identify which 
+attribute triggered the replacement (such as modifying db_name or engine type 
+incompatible with in-place changes). I would evaluate if the change can be done 
+in-place, check backup retention, or schedule a maintenance window with snapshot 
+restore procedures."
+
+
+5. HOW TO DEPLOY USING THE SAVED PLAN
+------------------------------------------------------------------------------
+To apply the exact frozen plan without interactive re-confirmation:
+  $ terraform apply tfplan
+
+Deployment Duration: Approximately 6 to 8 minutes (primarily for physical RDS 
+PostgreSQL instance provisioning and volume initialization).

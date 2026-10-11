@@ -242,7 +242,7 @@ resource "aws_db_instance" "dev_db" {
   max_allocated_storage  = 20
   storage_type           = "gp3"
   engine                 = "postgres"
-  engine_version         = "15.7"
+  engine_version         = "15.13"
   instance_class         = "db.t3.micro"
   username               = var.db_username
   password               = var.db_password
@@ -283,6 +283,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "finops_lifecycle" {
   rule {
     id     = "archive-cold-data-to-glacier"
     status = "Enabled"
+
+    filter {}
 
     transition {
       days          = 90

@@ -10,6 +10,10 @@
 *.tfstate.*
 *.tfstate.backup
 
+# Plan files (contain unencrypted sensitive values and ephemeral state)
+*.tfplan
+tfplan
+
 # Crash log files
 crash.log
 crash.*.log
@@ -49,3 +53,8 @@ Thumbs.db
 *.key
 .env
 *.local
+
+# Temporary CLI outputs and build archives
+response.json
+*.zip
+

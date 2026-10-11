@@ -18,16 +18,73 @@
 
 ---
 
-## 1. Prerequisites & Overview
+## 1. Prerequisites, Objectives & Project Overview
 
-This guide assumes you are starting on a **completely fresh computer** running Ubuntu/Debian Linux and have **no prior AWS configuration**.
+### 1.1 Project Objectives
+This project implements an enterprise-grade cloud automation suite designed to solve the real-world operational challenges of cloud cost overrun, security vulnerabilities, and infrastructure drift:
+* **Infrastructure as Code (IaC) Reproducibility:** Provision an immutable, multi-tiered AWS cloud environment (35 resources) deterministically using Terraform.
+* **FinOps Automated Cost Governance:** Reduce non-production cloud spend by automating off-hours shutdowns via AWS EventBridge and Python 3.12 Lambda, cutting weekly compute/database runtime from 168 hours to 55 hours (**67.26% cost reduction**).
+* **Zero-Trust Network Isolation:** Eliminate public SSH Port 22 completely in favor of **AWS Systems Manager (SSM Session Manager)**; enforce **Security Group Chaining** so the PostgreSQL database is accessible only from the application tier.
+* **Storage Tiering Optimization:** Enforce automated S3 Lifecycle rules transitioning cold data older than 90 days to **Amazon S3 Glacier Deep Archive**, cutting storage costs by **95.70%**.
+* **Proactive Observability:** Monitor compute health and database storage in real time using Amazon CloudWatch metric alarms connected to Amazon SNS for instant email incident alerting.
+* **Multi-Service Governance Auditing:** Execute custom shell scripts to audit unattached EBS volumes, stopped instances, S3 lifecycle policies, and open security groups.
 
-By following these instructions, you will:
-* Register for a new AWS Account and qualify for the **12-Month AWS Free Tier**.
-* Configure least-privilege IAM credentials for safe command-line automation.
-* Install all required toolchains (`git`, `awscli v2`, `terraform`).
-* Provision an enterprise Multi-AZ VPC, EC2 instance, RDS PostgreSQL instance, S3 data lake with Glacier lifecycle rules, CloudWatch observability alarms, and an automated Python Lambda scheduler.
-* Validate the automation and safely destroy all provisioned infrastructure in under 10 minutes to maintain a strict **$0.00 spending footprint**.
+### 1.2 Tools & Technologies Used
+| Category | Tool / Technology | Purpose |
+| :--- | :--- | :--- |
+| **Cloud Platform** | Amazon Web Services (AWS) | Core provider: VPC, EC2, RDS PostgreSQL, Lambda, EventBridge, CloudWatch, SNS, S3, IAM, SSM |
+| **Infrastructure as Code** | HashiCorp Terraform v1.9.8 | Declarative infrastructure orchestration (AWS Provider ~> 5.0, Archive Provider ~> 2.4, Random ~> 3.6) |
+| **Automation & Runtimes** | Python 3.12 (AWS Boto3 SDK) | Serverless event-driven start/stop scheduler Lambda function |
+| **Scripting & Toolchains** | Bash / POSIX Shell | Automated FinOps resource auditing script (`scripts/audit_finops_unused_resources.sh`) |
+| **CLI & Authentication** | AWS CLI v2 | Command-line management, query filtering, and authentication |
+| **Version Control** | Git & GitHub | Source code management with security filters preventing secret leakage |
+| **Reporting & Formats** | Markdown (.md) & Word (.docx) | Automated generation of executive engineering verification reports with embedded evidence |
+
+### 1.3 Cost Analysis & $0.00 Free Tier Budget Guarantee
+All resource tiers in this project are strictly selected within the limits of the **AWS 12-Month Free Tier**:
+| Service & Resource | AWS Free Tier Allowance | Project Usage | Actual Monthly Cost |
+| :--- | :--- | :--- | :--- |
+| **Amazon EC2 (`t3.micro`)** | 750 hours/month | ~220 hours/month (Governed by FinOps Scheduler) | **$0.00** |
+| **Amazon RDS (`db.t3.micro`)** | 750 hours/month | ~220 hours/month (Governed by FinOps Scheduler) | **$0.00** |
+| **Amazon RDS Storage** | 20 GB gp2/gp3 storage | 20 GB gp3 storage | **$0.00** |
+| **EBS Root Volume** | 30 GB total storage | 8 GB gp3 storage | **$0.00** |
+| **Amazon S3 Storage** | 5 GB Standard storage | < 100 MB | **$0.00** |
+| **AWS Lambda Requests** | 1,000,000 requests/month | ~60 requests/month (2 runs per business day) | **$0.00** |
+| **Amazon CloudWatch** | 10 Metric Alarms free | 2 Metric Alarms | **$0.00** |
+| **VPC, Subnets, IAM, SSM** | Always Free | Fully utilized | **$0.00** |
+| **Total Project Spend** | - | - | **$0.00** |
+
+### 1.4 Expected Results Upon Completion
+When you complete this project, you will have:
+1. **Fully Deployed Cloud Infrastructure:** 35 active AWS resources provisioned via Terraform without errors.
+2. **Operational FinOps Automation:** Invoking the Lambda scheduler with `{"action": "stop"}` stops EC2 and RDS instances; invoking `{"action": "start"}` resumes them.
+3. **Verified Hardened Security:** The PostgreSQL RDS instance is private (`PubliclyAccessible = False`), and EC2 has zero public SSH Port 22 open.
+4. **CloudWatch Alarms in OK State:** Both EC2 CPU (>80%) and RDS storage (<5 GB) alarms are active and healthy.
+5. **FinOps Audit Script Pass:** The audit script executes cleanly and flags stopped instances to maintain cost awareness.
+6. **Comprehensive Documentation:** Full photographic evidence captured in `docs/images/` and documented in `PROJECT_EXECUTION_REPORT.md` and `PROJECT_EXECUTION_REPORT.docx`.
+
+### 1.5 Recommendations: Common Problems & How to Avoid Them
+Based on real-world engineering troubleshooting logs (documented in `log.txt`):
+* **Problem 1 (AWS Builder ID Redirection):** Opening generic signup pages can redirect you to an AWS Builder ID profile rather than an AWS Cloud Account.  
+  *How to avoid:* Use an incognito browsing window and navigate directly to `https://portal.aws.amazon.com/billing/signup`.
+* **Problem 2 (Whitespace in Linux Paths):** Directory names with spaces (e.g., `AWS Crawl`) cause command-line syntax errors with bash scripts and Terraform plugins.  
+  *How to avoid:* Use underscores or hyphens in directory names (e.g., `AWS_Crawl`).
+* **Problem 3 (Terraform Package Manager on Linux Mint/Derivatives):** Linux Mint uses codename `zena`, causing HashiCorp APT repositories to return 404 (HashiCorp supports Ubuntu `noble`).  
+  *How to avoid:* Install the official standalone 64-bit Terraform binary directly into `/usr/local/bin`.
+* **Problem 4 (Executing from Wrong Directory):** Running `terraform plan` from the project root yields `Error: No configuration files`.  
+  *How to avoid:* Always change directory into `terraform/` (`cd terraform`) before running Terraform commands.
+* **Problem 5 (Inconsistent Dependency Lock File):** Running `terraform plan` before initializing plugins yields lock file errors.  
+  *How to avoid:* Always execute `terraform init` before running `plan` or `apply`.
+* **Problem 6 (S3 Lifecycle Invalid Attribute Combination):** In AWS Provider v5+, lifecycle rules targeting all bucket objects require an explicit `filter {}` block.  
+  *How to avoid:* Ensure `filter {}` is present inside the `rule` block in `main.tf`.
+* **Problem 7 (PostgreSQL Version Deprecation):** AWS periodically deprecates older patch releases (e.g., PostgreSQL 15.7 was retired in `ap-southeast-1`).  
+  *How to avoid:* Always verify orderable versions via `aws rds describe-orderable-db-instance-options` and use an active patch (e.g., `15.13`).
+* **Problem 8 (Committing Plan Files to Version Control):** `tfplan` files contain decrypted sensitive values (e.g., database passwords).  
+  *How to avoid:* Ensure `*.tfplan` and `tfplan` are explicitly listed in `.gitignore`.
+* **Problem 9 (Interactive Input Quotes in AWS CLI):** Entering quotation marks `""` during `aws configure` causes authentication failures.  
+  *How to avoid:* Paste raw key strings without any quotation marks.
+* **Problem 10 (Git Non-Fast-Forward Rejection):** Remote repositories created with template READMEs reject initial push commands.  
+  *How to avoid:* Use `git push -u origin main --force` on initial repository initialization.
 
 ---
 
@@ -87,13 +144,17 @@ AWS provides a 12-Month Free Tier offering 750 hours/month of `t2.micro`/`t3.mic
    * **Secret Access Key** (e.g., `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`)
    *(Store these securely. The Secret Key will never be displayed again.)*
 
-### 3.3 Set Up a Zero-Spend Billing Alarm
-1. In the AWS Console, search for **Billing and Cost Management**.
-2. In the left navigation pane, click **Budgets** > **Create budget**.
-3. Select **Cost budget (Recommended)**.
-4. Set **Budget amount** to `$1.00` per month.
-5. Set up an alert threshold at `80%` and input your personal email address.
-6. Confirm and activate the budget. You will now receive instant email alerts if any billable charge exceeds $0.80 USD.
+### 3.3 Set Up a Zero-Spend Budget Alarm ($0.01 Threshold)
+1. In the AWS Console top search bar, search for **AWS Budgets** (or navigate to **Billing and Cost Management** > **Budgets**).
+2. Click **Create budget**.
+3. Under **Budget setup**, select **Use a template (simplified)**.
+4. Under **Templates (new)**, select **Zero spend budget**:
+   * *Description: "Create a budget that notifies you once your spending exceeds $0.01."*
+   * This is AWS's official recommended template for Free Tier accounts. It triggers an instant alert at the very first cent ($0.01 USD / ~0.35 THB) of billable usage.
+5. In the **Email recipients** field, enter your email address for budget alerts (e.g., `alerts@example.com`).
+6. Click **Create budget** to activate.
+
+![AWS Zero Spend Budget Setup](docs/images/aws_zero_spend_budget.png)
 
 ---
 
@@ -108,6 +169,14 @@ sudo apt install -y curl wget unzip git python3 python3-pip lsb-release gnupg so
 ```
 
 ### 4.2 Configure Git Global User
+Configure your identity for commit history.
+
+> [IMPORTANT: KEEP THE QUOTATION MARKS ""]  
+> Always keep the double quotation marks `""` and replace only the text *inside* them:  
+> * **Name:** Quotes are mandatory if your name contains spaces (e.g., `"John Doe"` or `"PainWorry"`). Without quotes, the shell will treat the second word as an unrecognized argument and throw an error.  
+> * **Email:** Enclose your plain email inside quotes (e.g., `"yourname@gmail.com"`). Do not enter markdown links or formatting brackets.  
+> * **Default Branch:** The third command sets `main` as the default branch name (run as-is without quotes).
+
 ```bash
 git config --global user.name "Your Name"
 git config --global user.email "your-email@example.com"
@@ -128,20 +197,27 @@ aws --version
 # Expected output: aws-cli/2.x.x Python/3.x.x Linux/...
 ```
 
-### 4.4 Install HashiCorp Terraform (Official Repository)
+### 4.4 Install HashiCorp Terraform
+Install the official Terraform binary directly (works reliably across all Linux distributions including Ubuntu and Linux Mint):
 ```bash
-# Add HashiCorp GPG key
-wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
-
-# Add official repository
-echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
-
-# Install Terraform
-sudo apt update && sudo apt install -y terraform
+# Download official 64-bit Linux binary
+cd /tmp
+wget https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_linux_amd64.zip
+unzip -o terraform_1.9.8_linux_amd64.zip
+sudo mv terraform /usr/local/bin/
 
 # Verify installation
 terraform -version
-# Expected output: Terraform v1.x.x
+# Expected output: Terraform v1.9.8
+```
+
+*(Alternative via APT Repository for Ubuntu/Mint users:)*
+```bash
+# Note: Linux Mint users should use UBUNTU_CODENAME (e.g., noble) rather than Mint codename (zena)
+wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+UBUNTU_CODENAME=$(grep UBUNTU_CODENAME /etc/os-release | cut -d= -f2 || lsb_release -cs)
+echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com ${UBUNTU_CODENAME} main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+sudo apt update && sudo apt install -y terraform
 ```
 
 ---
@@ -156,9 +232,14 @@ aws configure
 ```
 
 Enter your information when prompted:
+
+> [IMPORTANT: DO NOT USE QUOTATION MARKS ""]  
+> In interactive `aws configure` prompts, paste your raw keys and values directly **without** any quotation marks `""`.  
+> If you enter quotes here, the AWS CLI will treat `"` as part of the key itself, resulting in authentication errors (`InvalidAccessKeyId`).
+
 ```text
-AWS Access Key ID [None]: <Paste your Access Key ID (AKIA...)>
-AWS Secret Access Key [None]: <Paste your Secret Access Key>
+AWS Access Key ID [None]: <Paste your Access Key ID (AKIA...) without quotes>
+AWS Secret Access Key [None]: <Paste your Secret Access Key without quotes>
 Default region name [None]: ap-southeast-1
 Default output format [None]: json
 ```
@@ -194,16 +275,21 @@ cd Lambda-Auto-Start-Stop-RDS
 *(Or navigate to your local workspace directory:)*
 ```bash
 cd /path/to/cloudops-cost-governance
+# Example: cd ~/User/AWS_Crawl/projects/cloudops-cost-governance
 ```
 
+> [TIP: AVOID SPACES IN LINUX FOLDER NAMES]  
+> Always use underscores (`_`) or hyphens (`-`) instead of spaces when naming folders in Linux (e.g., use `AWS_Crawl` rather than `AWS Crawl`). Unquoted whitespace in Linux paths frequently causes bash scripts, Terraform provider downloads, and CLI utilities to fail with `No such file or directory` errors.
+
 ### 6.2 Set Up Terraform Input Variables
-Navigate to the `terraform` subfolder:
+Navigate to the `terraform` subfolder and create your variables file from the example:
 ```bash
 cd terraform
 cp terraform.tfvars.example terraform.tfvars
+nano terraform.tfvars
 ```
 
-Edit `terraform.tfvars` with your text editor (`nano`, `vim`, or VS Code):
+Edit `terraform.tfvars` inside the nano editor:
 ```hcl
 aws_region   = "ap-southeast-1"
 project_name = "cloudops-governance"
@@ -217,6 +303,12 @@ db_username  = "dbadmin"
 db_password  = "CloudOpsPass2026!"
 ```
 
+> [NOTE: DATABASE CREDENTIALS - LEAVE AS-IS OR CUSTOMIZE?]  
+> * **Recommended (Leave as-is):** You can safely leave `db_username = "dbadmin"` and `db_password = "CloudOpsPass2026!"` exactly as they are. The RDS instance is isolated in a private subnet (with zero public internet access) and will be cleanly destroyed via `terraform destroy`. Keeping the default password guarantees you meet AWS RDS complexity rules without syntax errors.  
+> * **If you want to customize the password:** The password must be at least 8 characters long and must **not** contain `/`, `@`, `"`, or spaces (e.g., `"MySecureLabPass2026!"`).  
+> * **What you MUST change:** Only `alert_email` must be updated to your actual email (e.g., `"yourname@gmail.com"`) so AWS SNS can send you the confirmation link and incident alerts!  
+> * **How to save and exit in nano:** Press `Ctrl + O`, press `Enter` to confirm the filename, then press `Ctrl + X` to exit back to the terminal.
+
 ---
 
 ## 7. Step 6: Provisioning Infrastructure via Terraform
@@ -228,11 +320,30 @@ terraform init
 ```
 **Expected output:** `Terraform has been successfully initialized!`
 
+> [PRO-TIP: CENTRAL PLUGIN CACHE TO SAVE DISK SPACE]  
+> By default, Terraform downloads the AWS provider binary (~450 MB) separately into each project's local `.terraform/` folder, which consumes gigabytes of storage over time.  
+> You can configure a **central plugin cache** so Terraform downloads providers only once and shares them across all projects on your machine via lightweight symlinks:  
+> ```bash
+> # Create the central cache directory
+> mkdir -p ~/.terraform.d/plugin-cache
+> 
+> # Enable central cache in your bash profile
+> echo 'export TF_PLUGIN_CACHE_DIR="$HOME/.terraform.d/plugin-cache"' >> ~/.bashrc
+> source ~/.bashrc
+> ```
+> After setting this up once, running `terraform init` across any project will link the cached provider in seconds rather than redownloading 450 MB!
+
 ### 7.2 Run Execution Plan (Dry-Run Inspection)
 ```bash
 terraform plan
 ```
-Review the execution plan. Terraform will summarize the 20+ resources to be created without making any changes to your AWS account.
+Review the execution plan. Terraform will inspect existing AWS state and calculate the 35 resources to be created without making any real changes to your AWS account.
+
+> [NOTE: "You didn't use the -out option to save this plan..."]  
+> * **What it means:** When running `terraform plan` alone, Terraform performs an in-memory speculative dry-run and prints the planned actions to the terminal without saving the execution plan to disk.  
+> * **Is it an error?** No. It is an informational advisory notice from HashiCorp. When you run `terraform apply` subsequently, Terraform simply refreshes state and calculates the execution plan again before asking for confirmation.  
+> * **Local Development Workflow:** Running `terraform plan` followed by `terraform apply` is the standard, safe, and recommended workflow on developer workstations.  
+> * **Enterprise CI/CD Workflow:** In multi-engineer production pipelines (e.g., GitHub Actions, Terraform Cloud), teams run `terraform plan -out=tfplan` to lock the plan into a binary file, have it reviewed and approved, and then run `terraform apply tfplan` to guarantee deterministic execution without re-evaluating state.
 
 ### 7.3 Deploy Resources to AWS
 ```bash
@@ -343,6 +454,12 @@ chmod +x audit_finops_unused_resources.sh
 ==============================================================================
 ```
 
+### 8.4 Reviewing Verification Evidence & Reports
+All operational proof points have been captured and compiled into:
+* **Interactive Markdown Report:** [`PROJECT_EXECUTION_REPORT.md`](PROJECT_EXECUTION_REPORT.md)
+* **Formatted Word Document Report:** [`PROJECT_EXECUTION_REPORT.docx`](PROJECT_EXECUTION_REPORT.docx)
+* **Visual Evidence Gallery:** [`docs/images/`](docs/images/) containing Figures 1 through 12.
+
 ---
 
 ## 9. Step 8: Complete Teardown ($0 Cost Clean-up)
@@ -393,3 +510,10 @@ Both queries should return empty results. Your AWS bill will remain **$0.00**.
   * S3 Storage: 5 GB free.
   * Lambda: 1,000,000 requests free.
   * However, running `terraform destroy` when not in use is considered best engineering practice to avoid accidental quota consumption.
+
+### Q5: What does the notice "You didn't use the -out option to save this plan..." mean?
+* **Answer:** It is an informational best-practice notice from HashiCorp, not an error. In local developer workflows, running `terraform plan` followed by `terraform apply` is standard and safe. In automated production CI/CD pipelines, engineers pass `-out=tfplan` to serialize the reviewed plan into a binary artifact so that `terraform apply tfplan` executes deterministically without recalculating or re-evaluating state.
+
+### Q6: Why did Terraform display `Warning: Invalid Attribute Combination` on `aws_s3_bucket_lifecycle_configuration`?
+* **Cause:** In AWS Provider v5+, S3 lifecycle configuration rules require an explicit `filter {}` block inside each `rule` even if the rule applies to all objects in the bucket without a prefix filter.
+* **Fix:** Add an empty `filter {}` block inside the `rule` block in `terraform/main.tf`.

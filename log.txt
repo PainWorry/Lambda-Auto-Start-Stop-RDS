@@ -1,0 +1,109 @@
+# ==============================================================================
+# CloudOps Engineering - Troubleshooting & Knowledge Management Log (log.txt)
+# ==============================================================================
+# Purpose: Record real-world operational problems, root causes, and solutions
+# encountered during AWS setup, Linux workstation provisioning, and Terraform IaC.
+# ==============================================================================
+
+[LOG-001]
+Timestamp: 2026-10-11 02:43:07 +07:00
+Component: Git & GitHub
+Problem: git push rejected: "error: failed to push some refs ... [rejected] main -> main (fetch first)"
+Root Cause: The remote GitHub repository was initialized on the web with a default README or .gitignore, creating an initial commit that did not exist in the local Git history.
+Solution: Used force push to overwrite the remote template with the authoritative local repository:
+  git push -u origin main --force
+
+---
+
+[LOG-002]
+Timestamp: 2026-10-11 08:40:15 +07:00
+Component: AWS Account Setup
+Problem: User was routed to AWS Builder ID ("profile.aws.amazon.com") instead of AWS Management Console.
+Root Cause: Generic landing page signups or existing developer sessions default to AWS Builder ID (developer tool profile), which lacks 12-digit AWS Account ID, IAM, and cloud infrastructure capabilities.
+Solution: Opened an Incognito/Private browsing window and navigated directly to the dedicated AWS Cloud Account billing registration portal:
+  https://portal.aws.amazon.com/billing/signup
+
+---
+
+[LOG-003]
+Timestamp: 2026-10-11 09:20:00 +07:00
+Component: Linux OS & Paths
+Problem: Scripts and CLI commands failed or were difficult to quote due to spaces in path names ("AWS Crawl").
+Root Cause: Linux bash utilities, Terraform provider downloaders, and POSIX path parsers can misinterpret unquoted whitespace as multiple command arguments.
+Solution: Renamed directory to use an underscore:
+  /home/herrenk/User/AWS Crawl -> /home/herrenk/User/AWS_Crawl
+
+---
+
+[LOG-004]
+Timestamp: 2026-10-11 09:29:12 +07:00
+Component: Terraform CLI Installation (Linux Mint)
+Problem: "terraform: command not found" when trying to run terraform commands.
+Root Cause: Cache setup commands (mkdir plugin-cache, export TF_PLUGIN_CACHE_DIR) were executed before installing the Terraform binary itself. Additionally, Linux Mint uses codename "zena" which causes HashiCorp's official APT repository to return 404 (HashiCorp uses Ubuntu codename "noble").
+Solution: Downloaded and installed the official 64-bit standalone Terraform binary directly into /usr/local/bin:
+  cd /tmp
+  wget https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_linux_amd64.zip
+  unzip -o terraform_1.9.8_linux_amd64.zip
+  sudo mv terraform /usr/local/bin/
+
+---
+
+[LOG-005]
+Timestamp: 2026-10-11 09:36:37 +07:00
+Component: Terraform Execution Context
+Problem: "Error: No configuration files. Plan requires configuration to be present."
+Root Cause: The command "terraform plan" was executed from the root repository folder (~/User/AWS_Crawl/projects/cloudops-cost-governance), but the Terraform configuration files (*.tf) are located inside the "terraform/" subfolder.
+Solution: Changed working directory into the terraform subfolder:
+  cd terraform
+
+---
+
+[LOG-006]
+Timestamp: 2026-10-11 09:38:27 +07:00
+Component: Terraform State & Dependency Locks
+Problem: "Error: Inconsistent dependency lock file. Required by this configuration but no version is selected."
+Root Cause: Ran "terraform plan" before initializing the provider plugins. Terraform requires an initial dependency resolution step to download the provider plugins and lock their versions in .terraform.lock.hcl.
+Solution: Run "terraform init" inside the terraform directory before running plan or apply:
+  terraform init
+
+---
+
+[LOG-007]
+Timestamp: 2026-10-11 09:51:00 +07:00
+Component: Terraform AWS Provider (S3 Lifecycle Configuration)
+Problem: "Warning: Invalid Attribute Combination ... No attribute specified when one (and only one) of [rule[0].filter,rule[0].prefix] is required."
+Root Cause: In AWS Provider v5+, aws_s3_bucket_lifecycle_configuration requires an explicit filter {} block inside rule {} when targeting all objects in the bucket, otherwise it triggers a deprecation warning.
+Solution: Added an empty "filter {}" block inside rule {} in terraform/main.tf.
+
+---
+
+[LOG-008]
+Timestamp: 2026-10-11 09:53:30 +07:00
+Component: Terraform CLI (Plan Artifacts)
+Problem: User queried where the generated "tfplan" file is located and how to inspect its contents.
+Root Cause: The "-out=tfplan" flag creates a binary ZIP archive in the current directory that cannot be read directly via plain text editors (cat/nano).
+Solution: The file is located at terraform/tfplan. Inspect its contents using HashiCorp CLI commands:
+  terraform show tfplan          # Human-readable format
+  terraform show -json tfplan    # Structured JSON format
+
+---
+
+[LOG-009]
+Timestamp: 2026-10-11 10:02:45 +07:00
+Component: AWS RDS (PostgreSQL Engine Version Deprecation)
+Problem: "Error: creating RDS DB Instance (cloudops-governance-dev-db): operation error RDS: CreateDBInstance ... api error InvalidParameterCombination: Cannot find version 15.7 for postgres"
+Root Cause: AWS periodically deprecates older patch releases of database engines. In ap-southeast-1, PostgreSQL 15.7 was deprecated and retired from orderable RDS versions in favor of newer patch releases (e.g. 15.13+).
+Solution: Queried active versions via "aws rds describe-orderable-db-instance-options --engine postgres --db-instance-class db.t3.micro" and updated "engine_version = '15.13'" in terraform/main.tf.
+
+---
+
+[LOG-010]
+Timestamp: 2026-10-11 10:05:00 +07:00
+Component: Git & Security Governance (Excluding tfplan)
+Problem: Inquiry regarding whether the "tfplan" file should be tracked and added to Git ("git add tfplan").
+Root Cause: Plan files (.tfplan / tfplan) contain full representations of infrastructure state and variables, which may include unencrypted sensitive values (database master credentials, internal network topologies).
+Solution: Followed HashiCorp security best practices by adding "*.tfplan" and "tfplan" to .gitignore to prevent accidental leakage into remote version control.
+
+
+
+

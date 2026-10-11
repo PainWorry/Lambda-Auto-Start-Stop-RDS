@@ -71,8 +71,15 @@ projects/cloudops-cost-governance/
 │   └── start_stop_scheduler.py    # Python 3.12 Lambda automation using Boto3
 ├── scripts/
 │   └── audit_finops_unused_resources.sh  # Enterprise Bash script for FinOps resource hygiene
-├── .gitignore                     # Security gitignore rules (prevents .tfstate & secrets leaks)
-├── DEPLOYMENT_GUIDE.md            # Comprehensive step-by-step fresh-machine deployment guide
+├── docs/
+│   └── images/                    # Photographic evidence gallery (12 verified screenshots)
+├── .gitignore                     # Security gitignore rules (prevents .tfstate, tfplan & secrets leaks)
+├── DEPLOYMENT_GUIDE.md            # Complete deployment guide with objectives, pitfalls, and verification
+├── PROJECT_EXECUTION_REPORT.md    # Executive deployment & operational verification report
+├── PROJECT_EXECUTION_REPORT.docx  # Formatted Word Document execution report
+├── explain_TH.md                  # Comprehensive architecture & FinOps guide in Thai
+├── about_terraformplan-out=tfplan.txt # Deep dive into plan artifacts and interview questions
+├── log.txt                        # Engineering troubleshooting log (LOG-001 to LOG-010)
 └── README.md                      # Architecture overview and design documentation
 ```
 
